@@ -22,7 +22,7 @@ jobs:
 
       - name: Download mihomo
         run: |
-          wget -O mihomo.gz https://github.com/MetaCubeX/mihomo/releases/latest/download/mihomo-linux-amd64-alpha.gz
+          wget -O mihomo.gz https://github.com/MetaCubeX/mihomo/releases/download/Prerelease-Alpha/mihomo-linux-amd64-alpha-24b6de7.gz
           gunzip mihomo.gz
           chmod +x mihomo
           ./mihomo -v
