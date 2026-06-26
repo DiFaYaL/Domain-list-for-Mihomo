@@ -28,18 +28,11 @@ jobs:
 
       - name: Download mihomo
         run: |
-          echo "Скачивание ядра..."
           wget -O mihomo.gz https://github.com/MetaCubeX/mihomo/releases/download/Prerelease-Alpha/mihomo-linux-amd64-alpha-24b6de7.gz
-          
-          echo "Распаковка..."
           gunzip -f mihomo.gz
           chmod +x mihomo
-          
-          echo "Регистрация в системе..."
-          # Копируем в системную директорию, чтобы команда "mihomo" работала глобально
-          sudo cp mihomo /usr/local/bin/mihomo
-          
-          echo "Проверка версии ядра:"
+          # Переносим в бинарники системы, чтобы Python мог вызывать команду "mihomo" напрямую
+          sudo mv mihomo /usr/local/bin/mihomo
           mihomo -v
 
       - name: Build MRS from LST
@@ -51,7 +44,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@://github.com"
 
-          # Добавляем все новые и измененные .mrs файлы
+          # Находим все созданные .mrs файлы и добавляем их в индекс
           find . -type f -name "*.mrs" -print0 | xargs -0 git add
 
           if git diff --cached --quiet; then
