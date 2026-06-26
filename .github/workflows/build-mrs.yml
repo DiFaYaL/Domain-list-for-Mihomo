@@ -1,0 +1,44 @@
+name: Build all MRS
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - "**/*.lst"
+      - ".github/workflows/build-mrs.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download mihomo
+        run: |
+          wget -O mihomo.gz https://github.com/MetaCubeX/mihomo/releases/latest/download/mihomo-linux-amd64-alpha.gz
+          gunzip mihomo.gz
+          chmod +x mihomo
+          ./mihomo -v
+
+      - name: Convert all .lst to .mrs
+        run: |
+          find . -type f -name "*.lst" | while read -r file; do
+            out="${file%.lst}.mrs"
+            echo "Converting $file -> $out"
+            ./mihomo convert-ruleset domain text "$file" "$out"
+          done
+
+      - name: Commit generated .mrs files
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          find . -type f -name "*.mrs" -print0 | xargs -0 git add
+          git diff --cached --quiet || git commit -m "Auto-build .mrs files [skip ci]"
+          git push
