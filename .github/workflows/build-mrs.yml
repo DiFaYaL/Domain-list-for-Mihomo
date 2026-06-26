@@ -1,4 +1,4 @@
-name: Build all MRS
+name: Build all domain MRS
 
 on:
   push:
@@ -21,24 +21,65 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Download mihomo
+        shell: bash
         run: |
+          set -euo pipefail
           wget -O mihomo.gz https://github.com/MetaCubeX/mihomo/releases/download/Prerelease-Alpha/mihomo-linux-amd64-alpha-24b6de7.gz
-          gunzip mihomo.gz
+          gunzip -f mihomo.gz
           chmod +x mihomo
           ./mihomo -v
 
-      - name: Convert all .lst to .mrs
+      - name: Convert all domain .lst to .mrs
+        shell: bash
         run: |
-          find . -type f -name "*.lst" | while read -r file; do
+          set -euo pipefail
+
+          find . -type f -name "*.lst" -print0 | while IFS= read -r -d '' file; do
+            clean="${file%.lst}.clean.lst"
             out="${file%.lst}.mrs"
+
+            awk '
+              {
+                gsub(/\r/, "", $0)
+                sub(/[[:space:]]*#.*$/, "", $0)
+                gsub(/^[[:space:]]+|[[:space:]]+$/, "", $0)
+              }
+              NF {
+                if ($0 ~ /^\+\./) {
+                  print $0
+                } else if ($0 ~ /^\./) {
+                  print "+" $0
+                } else {
+                  print "+." $0
+                }
+              }
+            ' "$file" | sort -u > "$clean"
+
+            if [ ! -s "$clean" ]; then
+              echo "Skip empty cleaned file: $file"
+              rm -f "$clean"
+              continue
+            fi
+
             echo "Converting $file -> $out"
-            ./mihomo convert-ruleset domain text "$file" "$out"
+            ./mihomo convert-ruleset domain text "$clean" "$out"
+            rm -f "$clean"
           done
 
       - name: Commit generated .mrs files
+        shell: bash
         run: |
+          set -euo pipefail
+
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
           find . -type f -name "*.mrs" -print0 | xargs -0 git add
-          git diff --cached --quiet || git commit -m "Auto-build .mrs files [skip ci]"
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+
+          git commit -m "Auto-build domain .mrs files [skip ci]"
           git push
