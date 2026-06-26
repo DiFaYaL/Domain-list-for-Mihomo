@@ -5,6 +5,7 @@ on:
     branches: [ "main" ]
     paths:
       - "**/*.lst"
+      - "scripts/convert.py"
       - ".github/workflows/build-mrs.yml"
   workflow_dispatch:
 
@@ -20,57 +21,24 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
       - name: Download mihomo
-        shell: bash
         run: |
-          set -euo pipefail
           wget -O mihomo.gz https://github.com/MetaCubeX/mihomo/releases/download/Prerelease-Alpha/mihomo-linux-amd64-alpha-24b6de7.gz
           gunzip -f mihomo.gz
           chmod +x mihomo
           ./mihomo -v
 
-      - name: Convert all domain .lst to .mrs
-        shell: bash
+      - name: Build .mrs files
         run: |
-          set -euo pipefail
-
-          find . -type f -name "*.lst" -print0 | while IFS= read -r -d '' file; do
-            clean="${file%.lst}.clean.lst"
-            out="${file%.lst}.mrs"
-
-            awk '
-              {
-                gsub(/\r/, "", $0)
-                sub(/[[:space:]]*#.*$/, "", $0)
-                gsub(/^[[:space:]]+|[[:space:]]+$/, "", $0)
-              }
-              NF {
-                if ($0 ~ /^\+\./) {
-                  print $0
-                } else if ($0 ~ /^\./) {
-                  print "+" $0
-                } else {
-                  print "+." $0
-                }
-              }
-            ' "$file" | sort -u > "$clean"
-
-            if [ ! -s "$clean" ]; then
-              echo "Skip empty cleaned file: $file"
-              rm -f "$clean"
-              continue
-            fi
-
-            echo "Converting $file -> $out"
-            ./mihomo convert-ruleset domain text "$clean" "$out"
-            rm -f "$clean"
-          done
+          python3 scripts/convert.py
 
       - name: Commit generated .mrs files
-        shell: bash
         run: |
-          set -euo pipefail
-
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
