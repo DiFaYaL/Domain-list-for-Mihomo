@@ -18,39 +18,35 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+
+      - name: Cache mihomo
+        uses: actions/cache@v4
+        id: cache-mihomo
+        with:
+          path: /usr/local/bin/mihomo
+          key: mihomo-1.19.8
+
+      - name: Install mihomo
+        if: steps.cache-mihomo.outputs.cache-hit != 'true'
+        run: |
+          wget -qO- https://github.com/MetaCubeX/mihomo/releases/download/v1.19.8/mihomo-linux-amd64-v1.19.8.gz | gunzip > mihomo
+          chmod +x mihomo
+          sudo mv mihomo /usr/local/bin/
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
-      - name: Download mihomo
-        run: |
-          wget -O mihomo.gz https://github.com/MetaCubeX/mihomo/releases/download/Prerelease-Alpha/mihomo-linux-amd64-alpha-24b6de7.gz
-          gunzip -f mihomo.gz
-          chmod +x mihomo
-          # Переносим в бинарники системы, чтобы Python мог вызывать команду "mihomo" напрямую
-          sudo mv mihomo /usr/local/bin/mihomo
-          mihomo -v
+      - name: Build MRS
+        run: python3 scripts/convert.py
 
-      - name: Build MRS from LST
-        run: |
-          python3 scripts/convert.py
-
-      - name: Commit generated MRS files
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@://github.com"
-
-          # Находим все созданные .mrs файлы и добавляем их в индекс
-          find . -type f -name "*.mrs" -print0 | xargs -0 git add
-
-          if git diff --cached --quiet; then
-            echo "No changes to commit"
-            exit 0
-          fi
-
-          git commit -m "Auto-build .mrs from .lst [skip ci]"
-          git push
+      - name: Commit MRS files
+        uses: EndBug/add-and-commit@v9
+        with:
+          add: "**/*.mrs"
+          author_name: github-actions[bot]
+          author_email: 41898282+github-actions[bot]@users.noreply.github.com
+          message: "Auto-build .mrs [skip ci]"
+          push: true
