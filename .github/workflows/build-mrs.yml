@@ -1,4 +1,4 @@
-name: Build all domain MRS
+name: Build domain MRS
 
 on:
   push:
@@ -33,11 +33,11 @@ jobs:
           chmod +x mihomo
           ./mihomo -v
 
-      - name: Build .mrs files
+      - name: Build MRS from LST
         run: |
           python3 scripts/convert.py
 
-      - name: Commit generated .mrs files
+      - name: Commit generated MRS files
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -49,5 +49,5 @@ jobs:
             exit 0
           fi
 
-          git commit -m "Auto-build domain .mrs files [skip ci]"
+          git commit -m "Auto-build .mrs from .lst [skip ci]"
           git push
