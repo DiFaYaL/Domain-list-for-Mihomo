@@ -5,7 +5,7 @@ on:
     branches: ["main"]
     paths:
       - "**/*.lst"
-      - "scripts/convert.py"
+      - "scripts/convertOLD.py"
       - ".github/workflows/build-mrsOLD.yml"
   workflow_dispatch:
 
