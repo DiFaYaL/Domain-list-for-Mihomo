@@ -43,7 +43,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@://github.com"
 
-          # Добавляем в индекс файлы .mrs и созданные текстовые логи .txt
+          # Находим .mrs и .txt логи, игнорируя папку скриптов
           find . -type f \( -name "*.mrs" -o -name "*.txt" \) -not -path "*/scripts/*" -print0 | xargs -0 git add
 
           if git diff --cached --quiet; then
@@ -51,5 +51,5 @@ jobs:
             exit 0
           fi
 
-          git commit -m "Auto-build .mrs and .txt logs from .lst [skip ci]"
+          git commit -m "Auto-build .mrs and .txt logs [skip ci]"
           git push
