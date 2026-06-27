@@ -12,7 +12,8 @@ def clean_and_sort_domains(domains: set[str]) -> list[str]:
     clean_set = set()
     for d in domains:
         d = d.strip()
-        # Очищаем от префиксов, если они случайно закрались в .lst
+        # Очищаем от возможных префиксов, если они случайно закрались в исходник
+        if d.startswith("DOMAIN-SUFFIX,"): d = d[len("DOMAIN-SUFFIX,"):]
         if d.startswith("+."): d = d[2:]
         elif d.startswith("."): d = d[1:]
         if d:
@@ -27,7 +28,7 @@ def lines_from_file(filepath: Path):
         for line in f:
             line = line.replace("\r", "").replace("\n", "")
             if "#" in line:
-                line = line.split("#", 1)
+                line = line.split("#", 1)[0]
             line = line.strip()
             if line:
                 result.append(line)
@@ -42,20 +43,19 @@ def generate_all_formats(raw_domains, lst_path: Path):
     yaml_path = lst_path.with_suffix(".yaml")
     mrs_path = lst_path.with_suffix(".mrs")
 
-    # 1. Перезаписываем исходный .lst файл чистыми строками
+    # 1. Перезаписываем исходный .lst файл идеально чистыми уникальными доменами
     with lst_path.open("w", encoding="utf-8", newline="\n") as f:
         f.write("\n".join(filtered_domains) + "\n")
 
-    # 2. Генерируем .yaml файл СТРОГО БЕЗ ПРЕФИКСОВ +. (Только чистые домены)
+    # 2. Генерируем .yaml файл СТРОГО в синтаксисе ClashX (как inside-clashx.lst)
     with yaml_path.open("w", encoding="utf-8", newline="\n") as f:
         f.write("payload:\n")
         for d in filtered_domains:
-            f.write(f"    - {d}\n")
+            f.write(f"  - DOMAIN-SUFFIX,{d}\n")
     
-    # 3. ПРОЦЕДУРА ГЕНЕРАЦИИ БИНАРНОГО .MRS ФАЙЛА
+    # 3. ПРОЦЕДУРА ГЕНЕРАЦИИ БИНАРНОГО .MRS ФАЙЛА (Вызов ядра из Python)
     try:
-        print(f"Компиляция бинарника: {mrs_path.name}")
-        # Вызываем установленный в системе mihomo прямо из кода Python
+        print(f"Компиляция бинарника MRS для: {mrs_path.name}")
         subprocess.run(
             ["mihomo", "convert-ruleset", "domain", "yaml", str(yaml_path), str(mrs_path)],
             check=True,
