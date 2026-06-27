@@ -1,1 +1,3 @@
-rezka.fi
+# Финальный лог компиляции для Mihomo Rule Set
+payload:
+  - 'rezka.fi'

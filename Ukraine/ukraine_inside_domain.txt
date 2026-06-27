@@ -1,2 +1,4 @@
-translate.yandex.ru
-yandex.ru
+# Финальный лог компиляции для Mihomo Rule Set
+payload:
+  - 'translate.yandex.ru'
+  - 'yandex.ru'
