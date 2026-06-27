@@ -48,14 +48,13 @@ jobs:
       - name: Generate lists
         run: |
           python3 scripts/convert.py
-      
+
       - name: Commit and push generated files
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          find . -type f \( -name "*.mrs" -o -name "*.yaml" -o -name "*.lst"\) \
-            -not -path "./.github/*" -print0 | xargs -0 git add
+          find . -type f \( -name "*.mrs" -o -name "*.yaml" -o -name "*.lst" \) -not -path "./.github/*" -print0 | xargs -0 git add
 
           if git diff --cached --quiet; then
             echo "No changes to commit"
