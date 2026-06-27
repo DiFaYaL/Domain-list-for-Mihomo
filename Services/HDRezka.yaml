@@ -1,5 +1,6 @@
 payload:
   - '+.hd-rezka.tv'
+  - '+.hdrezka-home.tv'
   - '+.hdrezka.ac'
   - '+.hdrezka.ag'
   - '+.hdrezka.app'
@@ -15,3 +16,6 @@ payload:
   - '+.rezka.my'
   - '+.rezka.tv'
   - '+.rezkify.com'
+  - '+.sambray.org'
+  - '+.statichdrezka.ac'
+  - '+.ukrtelcdn.net'
