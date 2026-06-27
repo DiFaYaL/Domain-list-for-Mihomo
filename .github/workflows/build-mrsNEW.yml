@@ -1,0 +1,65 @@
+name: Build domain MRS
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - "**/*.lst"
+      - "scripts/convertNEW.py"
+      - ".github/workflows/build-mrsNEW.yml"
+  workflow_dispatch:
+
+jobs:
+  build:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install latest mihomo
+        run: |
+          M_VER=$(curl -s https://api.github.com/repos/MetaCubeX/mihomo/releases/latest \
+                  | grep '"tag_name":' \
+                  | sed -E 's/.*"v([^"]+)".*/\1/')
+
+          if [ -z "$M_VER" ]; then
+            echo "Ошибка: не удалось получить версию mihomo из GitHub API"
+            exit 1
+          fi
+
+          echo "Installing mihomo v${M_VER}"
+          wget -q -O mihomo.gz "https://github.com/MetaCubeX/mihomo/releases/download/v${M_VER}/mihomo-linux-amd64-v${M_VER}.gz"
+          gunzip -f mihomo.gz
+          chmod +x mihomo
+          sudo mv mihomo /usr/local/bin/
+          mihomo -v
+
+      - name: Generate lists
+        run: |
+          python3 scripts/convert.py
+
+      - name: Commit and push generated files
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          find . -type f \( -name "*.mrs" -o -name "*.yaml" -o -name "*.lst" \) -not -path "./.github/*" -print0 | xargs -0 git add
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "chore: auto-update rule sets (.lst, .yaml, .mrs) [skip ci]"
+            git pull --rebase origin main
+            git push origin main
+          fi
