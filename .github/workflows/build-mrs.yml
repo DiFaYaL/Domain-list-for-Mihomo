@@ -6,7 +6,7 @@ on:
     paths:
       - "**/*.lst"
       - "scripts/convert.py"
-      - ".github/workflows/build-mrs.yml"
+      - ".github/workflows/build-mrsOLD.yml"
   workflow_dispatch:
 
 jobs:
