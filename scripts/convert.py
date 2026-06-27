@@ -22,9 +22,9 @@ def lines_from_file(filepath: Path):
     result = []
     with filepath.open("r", encoding="utf-8") as f:
         for line in f:
-            # Очищаем строку от спецсимволов переноса строки
+            # Очищаем от спецсимволов переноса
             line = line.replace("\r", "").replace("\n", "")
-            # Отрезаем комментарии по знаку #
+            # Отрезаем комментарии
             if "#" in line:
                 line = line.split("#", 1)[0]
             line = line.strip()
@@ -41,7 +41,7 @@ def to_mrs(domains):
         if not value:
             continue
 
-        # Сохраняем домены "as is" БЕЗ принудительного добавления префиксов "+."
+        # Сохраняем домены "as is"
         if value not in seen:
             seen.add(value)
             out.append(value)
@@ -49,7 +49,6 @@ def to_mrs(domains):
     return sorted(out)
 
 def iter_lst_files():
-    # Ищем файлы .lst по всему вашему репозиторию
     for path in ROOT.rglob("*.lst"):
         if any(part in SKIP_PARTS for part in path.parts):
             continue
@@ -60,36 +59,38 @@ def compile_mrs(domains, lst_path: Path):
         print(f"Пропуск пустого файла: {lst_path}")
         return
 
-    # Пути для файлов: временный txt, финальный mrs и текстовый лог (зеркало)
+    # Пути для файлов
     tmp_txt_path = lst_path.with_suffix(".tmp.txt")
     mrs_path = lst_path.with_suffix(".mrs")
-    log_txt_path = lst_path.with_suffix(".txt")  # <-- Файл для просмотра глазами на GitHub
+    log_txt_path = lst_path.with_suffix(".txt")  # Наш файл-логгер
 
-    # Записываем очищенный список во временный файл для компилятора
+    # 1. Записываем чистые строки во временный файл для компилятора Mihomo
     with tmp_txt_path.open("w", encoding="utf-8") as f:
         for d in domains:
             f.write(f"{d}\n")
 
-    # Создаем постоянную текстовую копию (лог-зеркало) для проверки руками
+    # 2. Записываем полную структуру payload в постоянный .txt логгер для контроля глазами
     with log_txt_path.open("w", encoding="utf-8") as f:
+        f.write("# Финальный лог компиляции для Mihomo Rule Set\n")
+        f.write("payload:\n")
         for d in domains:
-            f.write(f"{d}\n")
+            f.write(f"  - '{d}'\n")
 
     try:
-        # Компилируем .mrs через глобальный бинарник mihomo
+        # Компилируем .mrs
         subprocess.run(
             ["mihomo", "convert-ruleset", "domain", "text", str(tmp_txt_path), str(mrs_path)],
             check=True,
             cwd=ROOT,
         )
-        print(f"Успешно созданы: {mrs_path.name} и {log_txt_path.name}")
+        print(f"Успешно скомпилировано и залогировано: {lst_path.name}")
     except FileNotFoundError:
         print("Ошибка: исполняемый файл mihomo не найден в системе!")
         sys.exit(1)
     except subprocess.CalledProcessError as e:
         print(f"Ошибка компиляции для файла {lst_path.name}: {e}")
     finally:
-        # Удаляем только временный файл, постоянный .txt лог остается
+        # Удаляем только временный файл, логгер остается
         tmp_txt_path.unlink(missing_ok=True)
 
 def main():
