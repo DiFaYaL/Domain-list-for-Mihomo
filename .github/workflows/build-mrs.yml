@@ -5,8 +5,8 @@ on:
     branches: [ "main" ]
     paths:
       - "**/*.lst"
-      - "scripts/convertNEW.py"
-      - ".github/workflows/build-mrsNEW.yml"
+      - "scripts/convert.py"
+      - ".github/workflows/build-mrs.yml"
   workflow_dispatch:
 
 jobs:
