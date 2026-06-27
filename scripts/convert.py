@@ -8,7 +8,7 @@ SKIP_PARTS = {".git", ".github", "__pycache__", "scripts"}
 
 
 def clean_and_sort_domains(domains: list[str]) -> list[str]:
-    """Очищает строки от пробелов, лишних префиксов, комментариев и дубликатов."""
+    """Очищает домены от мусора, дубликатов, приводит к нижнему регистру."""
     clean_set = set()
     for d in domains:
         d = d.strip()
@@ -42,7 +42,7 @@ def lines_from_file(filepath: Path) -> list[str]:
 
 
 def generate_all_formats(raw_domains: list[str], lst_path: Path) -> None:
-    """Генерирует .lst (очищенный), .yaml и .mrs для одного исходного файла."""
+    """Генерирует .lst (очищенный), .yaml (дебаг) и .mrs (финал)."""
     filtered_domains = clean_and_sort_domains(raw_domains)
 
     if not filtered_domains:
@@ -50,25 +50,31 @@ def generate_all_formats(raw_domains: list[str], lst_path: Path) -> None:
         return
 
     yaml_path = lst_path.with_suffix(".yaml")
-    mrs_path  = lst_path.with_suffix(".mrs")
+    txt_path = lst_path.with_suffix(".txt")
+    mrs_path = lst_path.with_suffix(".mrs")
 
-    # 1. Перезаписываем .lst — чистые уникальные домены, один на строку
+    # 1. Нормализуем исходный .lst
     with lst_path.open("w", encoding="utf-8", newline="\n") as f:
         f.write("\n".join(filtered_domains) + "\n")
-    print(f"[OK]   .lst обновлён: {lst_path.relative_to(ROOT)}  ({len(filtered_domains)} доменов)")
+    print(f"[OK]   .lst нормализован: {lst_path.relative_to(ROOT)}  ({len(filtered_domains)} доменов)")
 
-    # 2. Генерируем .yaml в формате ClashX (Legacy rule-set)
+    # 2. YAML для дебага
     with yaml_path.open("w", encoding="utf-8", newline="\n") as f:
         f.write("payload:\n")
         for d in filtered_domains:
             f.write(f"  - '+.{d}'\n")
-    print(f"[OK]   .yaml записан: {yaml_path.relative_to(ROOT)}")
+    print(f"[OK]   .yaml (дебаг) записан: {yaml_path.relative_to(ROOT)}")
 
-    # 3. Компилируем бинарный .mrs через mihomo
+    # 3. Временный TXT для mihomo — как у itdoginfo
+    with txt_path.open("w", encoding="utf-8", newline="\n") as f:
+        for d in filtered_domains:
+            f.write(f"+.{d}\n")
+
+    # 4. Компиляция .mrs через text
     try:
         print(f"[...] Компиляция MRS: {mrs_path.name}")
         result = subprocess.run(
-            ["mihomo", "convert-ruleset", "domain", "yaml", str(yaml_path), str(mrs_path)],
+            ["mihomo", "convert-ruleset", "domain", "text", str(txt_path), str(mrs_path)],
             check=True,
             capture_output=True,
             text=True,
@@ -78,11 +84,13 @@ def generate_all_formats(raw_domains: list[str], lst_path: Path) -> None:
             print(result.stdout.strip())
         print(f"[OK]   .mrs скомпилирован: {mrs_path.relative_to(ROOT)}")
     except FileNotFoundError:
-        print("FATAL: исполняемый файл 'mihomo' не найден в PATH!", file=sys.stderr)
+        print("FATAL: 'mihomo' не найден в PATH!", file=sys.stderr)
         sys.exit(1)
     except subprocess.CalledProcessError as e:
-        print(f"FATAL: ошибка компиляции MRS для {mrs_path.name}:\n{e.stderr}", file=sys.stderr)
+        print(f"FATAL: ошибка компиляции {mrs_path.name}:\n{e.stderr}", file=sys.stderr)
         sys.exit(1)
+    finally:
+        txt_path.unlink(missing_ok=True)
 
 
 def main() -> int:
@@ -110,7 +118,7 @@ def main() -> int:
         print()
 
     if errors:
-        print(f"\nЗавершено с ошибками: {errors} файл(ов) не обработано.", file=sys.stderr)
+        print(f"Завершено с ошибками: {errors} файл(ов) не обработано.", file=sys.stderr)
         return 1
 
     print("Все файлы успешно обработаны.")
