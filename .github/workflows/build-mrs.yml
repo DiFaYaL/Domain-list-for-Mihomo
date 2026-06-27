@@ -9,47 +9,57 @@ on:
       - ".github/workflows/build-mrs.yml"
   workflow_dispatch:
 
-permissions:
-  contents: write
-
 jobs:
   build:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
-      - name: Checkout repository
+      - name: Checkout repo
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: '3.12'
 
-      - name: Download mihomo
-        run: |
-          wget -O mihomo.gz https://github.com/MetaCubeX/mihomo/releases/download/v1.19.8/mihomo-linux-amd64-v1.19.8.gz
-          gunzip -f mihomo.gz
-          chmod +x mihomo
-          sudo mv mihomo /usr/local/bin/mihomo
-          mihomo -v
-
-      - name: Build MRS from LST
+      - name: Build YAML and Clean LST lists
         run: |
           python3 scripts/convert.py
 
-      - name: Commit generated MRS and TXT files
+      - name: Install latest mihomo
+        run: |
+          M_VER=$(curl -s https://github.com | \
+                  grep '"tag_name":' | sed -E 's/.*"v([^"]+)".*/\1/')
+          echo "Latest mihomo version: $M_VER"
+          wget -O mihomo.gz https://github.com{M_VER}/mihomo-linux-amd64-v${M_VER}.gz
+          gunzip -f mihomo.gz
+          chmod +x mihomo
+          sudo mv mihomo /usr/local/bin/
+          mihomo -v
+
+      - name: Convert .yaml to .mrs
+        run: |
+          # Находим созданные .yaml файлы и компилируем из них бинарные .mrs правила
+          find . -type f -name "*.yaml" -not -path "*/.github/*" | while read file; do
+            echo "Компиляция бинарника: $file"
+            mihomo convert-ruleset domain yaml "$file" "${file%.yaml}.mrs"
+          done
+
+      - name: Commit and push generated files
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@://github.com"
-
-          # Находим .mrs и .txt логи, игнорируя папку скриптов
-          find . -type f \( -name "*.mrs" -o -name "*.txt" \) -not -path "*/scripts/*" -print0 | xargs -0 git add
-
-          if git diff --cached --quiet; then
-            echo "No changes to commit"
-            exit 0
-          fi
-
-          git commit -m "Auto-build .mrs and .txt logs [skip ci]"
-          git push
+          
+          # Добавляем в коммит абсолютно все три типа файлов (.lst, .yaml, .mrs) во всех папках
+          find . -type f \( -name "*.mrs" -o -name "*.yaml" -o -name "*.lst" \) -not -path "*/.github/*" -print0 | xargs -0 git add
+          
+          git commit -m "Auto-update compiled rule sets (.lst, .yaml, .mrs) [skip ci]" || echo "No changes"
+          git pull --rebase origin main
+          git push https://x-access-token:${GITHUB_TOKEN}@://github.com{{ github.repository }}.git
