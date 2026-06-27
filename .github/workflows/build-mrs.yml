@@ -49,17 +49,22 @@ jobs:
         run: |
           python3 scripts/convert.py
 
+      - name: Debug generated files
+        run: |
+          find Russia Ukraine Services -type f | sort
+      
       - name: Commit and push generated files
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          find . -type f \( -name "*.mrs" -o -name "*.yaml" -o -name "*.lst" \) -not -path "./.github/*" -print0 | xargs -0 git add
+          find . -type f \( -name "*.mrs" -o -name "*.yaml" -o -name "*.lst" -o -name "*.txt" \) \
+            -not -path "./.github/*" -print0 | xargs -0 git add
 
           if git diff --cached --quiet; then
             echo "No changes to commit"
           else
-            git commit -m "chore: auto-update rule sets (.lst, .yaml, .mrs) [skip ci]"
+            git commit -m "chore: auto-update rule sets (.lst, .yaml, .mrs, .txt) [skip ci]"
             git pull --rebase origin main
             git push origin main
           fi
