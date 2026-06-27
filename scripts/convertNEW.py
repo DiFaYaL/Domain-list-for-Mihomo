@@ -95,8 +95,8 @@ def compile_mrs(domains, output_base_path, behavior='domain'):
     except subprocess.CalledProcessError as e:
         print(f'Compile error {txt_path}: {e}', file=sys.stderr)
         sys.exit(1)
-    finally:
-        txt_path.unlink(missing_ok=True)
+   # finally:
+   #     txt_path.unlink(missing_ok=True)
 
 
 # --- Ниже намеренно оставлены куски itdoginfo, но они сейчас НЕ используются ---
