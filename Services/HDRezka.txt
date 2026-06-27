@@ -14,5 +14,4 @@
 +.rezka.my
 +.rezka.tv
 +.rezkify.com
-+.test.com
 +.voidboost.cc
