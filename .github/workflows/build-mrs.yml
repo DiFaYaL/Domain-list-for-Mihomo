@@ -13,7 +13,6 @@ jobs:
   build:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
-    # ФИКС: Явно разрешаем этой задаче делать пуш в репозиторий
     permissions:
       contents: write
 
@@ -21,7 +20,6 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
         with:
-          # ФИКС: Разрешаем сохранять данные авторизации для push
           persist-credentials: true
 
       - name: Set up Python
@@ -29,37 +27,31 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Build YAML and Clean LST lists
+      - name: Install latest mihomo
         run: |
-          python3 scripts/convert.py
-
-      - name: Install mihomo
-        run: |
-          M_VER=$(curl -s https://api.github.com/repos/MetaCubeX/mihomo/releases/latest | \
+          # Скачиваем стабильное ядро Mihomo и ставим его в систему, чтобы скрипт Python мог его вызвать
+          M_VER=$(curl -s https://github.com | \
                   grep '"tag_name":' | sed -E 's/.*"v([^"]+)".*/\1/')
           echo "Latest mihomo version: $M_VER"
-          wget -O mihomo.gz https://github.com/MetaCubeX/mihomo/releases/download/v${M_VER}/mihomo-linux-amd64-v${M_VER}.gz
+          wget -O mihomo.gz https://github.com{M_VER}/mihomo-linux-amd64-v${M_VER}.gz
           gunzip -f mihomo.gz
           chmod +x mihomo
           sudo mv mihomo /usr/local/bin/
           mihomo -v
 
-      - name: Convert .yaml to .mrs
+      - name: Generate lists (All compilation inside Python)
         run: |
-          find . -type f -name "*.yaml" -not -path "*/.github/*" | while read file; do
-            echo "Компиляция бинарника: $file"
-            mihomo convert-ruleset domain yaml "$file" "${file%.yaml}.mrs"
-          done
+          # Запускаем скрипт, теперь вся сборка .yaml и .mrs происходит внутри него
+          python3 scripts/convert.py
 
       - name: Commit and push generated files
         run: |
           git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@://github.com"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           
-          # Находим и добавляем все три типа файлов во всех папках
+          # Находим и добавляем абсолютно все три типа файлов (.lst, .yaml, .mrs) во всех папках
           find . -type f \( -name "*.mrs" -o -name "*.yaml" -o -name "*.lst" \) -not -path "*/.github/*" -print0 | xargs -0 git add
           
-          # Делаем коммит и отправляем стандартным безопасным способом через сохраненный токен сессии
           if git commit -m "Auto-update compiled rule sets (.lst, .yaml, .mrs) [skip ci]"; then
             git pull --rebase origin main
             git push origin main
