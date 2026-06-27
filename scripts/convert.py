@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -7,16 +8,15 @@ ROOT = Path(__file__).resolve().parent.parent
 SKIP_PARTS = {".git", ".github", "__pycache__", "scripts"}
 
 def clean_and_sort_domains(domains: set[str]) -> list[str]:
-    """Просто очищает строки и убирает точные дубликаты БЕЗ удаления поддоменов"""
+    """Очищает строки от пробелов, случайных префиксов и дубликатов"""
     clean_set = set()
     for d in domains:
         d = d.strip()
-        # Очищаем от случайных префиксов, если они были в исходнике
+        # Очищаем от префиксов, если они случайно закрались в .lst
         if d.startswith("+."): d = d[2:]
         elif d.startswith("."): d = d[1:]
         if d:
             clean_set.add(d)
-    # Возвращаем просто отсортированный по алфавиту список
     return sorted(list(clean_set))
 
 def lines_from_file(filepath: Path):
@@ -27,33 +27,47 @@ def lines_from_file(filepath: Path):
         for line in f:
             line = line.replace("\r", "").replace("\n", "")
             if "#" in line:
-                line = line.split("#", 1)[0]
+                line = line.split("#", 1)
             line = line.strip()
             if line:
                 result.append(line)
     return result
 
 def generate_all_formats(raw_domains, lst_path: Path):
-    # Теперь здесь простая очистка без вредного алгоритма сокращения
     filtered_domains = clean_and_sort_domains(raw_domains)
     if not filtered_domains:
         print(f"Пропуск пустого файла: {lst_path.name}")
         return
 
     yaml_path = lst_path.with_suffix(".yaml")
-    final_lst_path = lst_path
+    mrs_path = lst_path.with_suffix(".mrs")
 
-    # 1. Перезаписываем .lst файл чистыми строками БЕЗ удаления ваших поддоменов
-    with final_lst_path.open("w", encoding="utf-8", newline="\n") as f:
+    # 1. Перезаписываем исходный .lst файл чистыми строками
+    with lst_path.open("w", encoding="utf-8", newline="\n") as f:
         f.write("\n".join(filtered_domains) + "\n")
 
-    # 2. Генерируем .yaml файл строго по стандарту (с 4 пробелами и префиксом +.)
+    # 2. Генерируем .yaml файл СТРОГО БЕЗ ПРЕФИКСОВ +. (Только чистые домены)
     with yaml_path.open("w", encoding="utf-8", newline="\n") as f:
         f.write("payload:\n")
         for d in filtered_domains:
-            f.write(f"    - +.{d}\n")
+            f.write(f"    - {d}\n")
     
-    print(f"Успешно сгенерированы .lst и .yaml для: {lst_path.name} (Доменов: {len(filtered_domains)})")
+    # 3. ПРОЦЕДУРА ГЕНЕРАЦИИ БИНАРНОГО .MRS ФАЙЛА
+    try:
+        print(f"Компиляция бинарника: {mrs_path.name}")
+        # Вызываем установленный в системе mihomo прямо из кода Python
+        subprocess.run(
+            ["mihomo", "convert-ruleset", "domain", "yaml", str(yaml_path), str(mrs_path)],
+            check=True,
+            cwd=ROOT,
+        )
+        print(f"Успешно скомпилирован: {mrs_path.name}")
+    except FileNotFoundError:
+        print("Ошибка: исполняемый файл 'mihomo' не найден в переменной PATH системы!")
+        sys.exit(1)
+    except subprocess.CalledProcessError as e:
+        print(f"Критическая ошибка компиляции Mihomo для {mrs_path.name}: {e}")
+        sys.exit(1)
 
 def main():
     found = False
