@@ -70,7 +70,15 @@ def compile_mrs(domains, output_base_path, behavior='domain'):
     mrs_path = output_base_path.with_suffix('.mrs')
     lst_path = output_base_path.with_suffix('.lst')
 
-  #  clean_domains = sorted(set(d.lstrip('.').lower() for d in domains if d.strip()))
+    clean_domains = []
+    seen = set()
+
+    for d in domains:
+        d = d.lstrip('.').lower().strip()
+        if not d or d in seen:
+            continue
+        seen.add(d)
+        clean_domains.append(d)
 
     with lst_path.open('w', encoding='utf-8', newline='\n') as f:
         for d in clean_domains:
